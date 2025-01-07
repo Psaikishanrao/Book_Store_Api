@@ -1,7 +1,5 @@
-
-
 const authMiddleware = (req, res, next) => {
-    const userId = req.headers['x-user-id'];//mock implementation or mock id
+    const userId = req.headers['x-user-id'];
     const role = req.headers['x-role'];
 
     if (!userId || !role) {

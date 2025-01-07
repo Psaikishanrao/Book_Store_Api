@@ -1,5 +1,3 @@
-
-
 const roleMiddleware = (allowedRoles) => {
     return (req, res, next) => {
         const userRole = req.headers['x-role']; 

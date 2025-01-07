@@ -1,5 +1,4 @@
 const mongoose = require('mongoose');
-
 const bookSchema = new mongoose.Schema({
     title: {
         type: String,
@@ -14,7 +13,7 @@ const bookSchema = new mongoose.Schema({
         default: Date.now,
     },
 }, {
-    versionKey: false, // Exclude the "__v" field
+    versionKey: false, 
 });
 
 module.exports = mongoose.model('Book', bookSchema);

@@ -4,7 +4,6 @@ const roleMiddleware = require('../middlewares/roleMiddleware');
 
 const router = express.Router();
 
-
 router.get('/', roleMiddleware(['Admin', 'User']), getAllBooks);
 router.post('/', roleMiddleware(['Admin']), createBook);
 router.put('/:id', roleMiddleware(['Admin']), updateBook); 
