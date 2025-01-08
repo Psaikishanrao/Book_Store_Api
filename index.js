@@ -12,7 +12,9 @@ const Redis = require('ioredis');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-const redisClient = new Redis(process.env.REDIS_URL);
+
+const isTestEnv = process.env.NODE_ENV === 'test';
+const redisClient = isTestEnv ? null : new Redis(process.env.REDIS_URL);
 
 connectDB();
 
@@ -20,25 +22,24 @@ app.use(bodyParser.json());
 app.use(morgan('dev'));
 app.use(authMiddleware);
 
-
-const limiter = rateLimit({
-    store: new RedisStore({
-        sendCommand: (...args) => redisClient.call(...args), 
-    }),
-    keyGenerator: (req) => req.headers['x-user-id'],
-    windowMs: 60 * 1000, 
-    max: 10, 
-    standardHeaders: true, 
-    legacyHeaders: false, 
-    message: {
-        status: 429,
-        error: 'Too many requests. Please try again later.',
-    },
-});
+const limiter = isTestEnv
+    ? (req, res, next) => next() 
+    : rateLimit({
+          store: new RedisStore({
+              sendCommand: (...args) => redisClient.call(...args),
+          }),
+          keyGenerator: (req) => req.headers['x-user-id'],
+          windowMs: 60 * 1000, 
+          max: 10,
+          standardHeaders: true,
+          legacyHeaders: false,
+          message: {
+              status: 429,
+              error: 'Too many requests. Please try again later.',
+          },
+      });
 
 app.use(limiter);
-
-// Routes
 app.use('/books', bookRoutes);
 
 app.get('/', (req, res) => {
@@ -47,8 +48,6 @@ app.get('/', (req, res) => {
         message: 'Welcome to the Book Store API',
     });
 });
-
-
 app.use((req, res) => {
     res.status(404).json({
         status: 404,
@@ -56,7 +55,11 @@ app.use((req, res) => {
     });
 });
 
+let server;
+if (!isTestEnv) {
+    server = app.listen(PORT, () => {
+        console.log(`Server running on http://localhost:${PORT}`);
+    });
+}
 
-app.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-});
+module.exports = { app, server, redisClient };

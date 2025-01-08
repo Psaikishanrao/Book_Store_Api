@@ -1,102 +1,100 @@
-const Book = require('../models/Book');
+const Book = require('../models/book');
+const redisClient = require('../services/redisClient'); 
+
 
 const getAllBooks = async (req, res) => {
     try {
-        const books = await Book.find(); 
-        res.status(200).json({
+        const cacheKey = 'books'; 
+        const cachedBooks = await redisClient.get(cacheKey);
+
+        if (cachedBooks) {
+            return res.status(200).json({
+                status: 200,
+                source: 'cache',
+                data: JSON.parse(cachedBooks),
+            });
+        }
+        const books = await Book.find();
+        await redisClient.set(cacheKey, JSON.stringify(books), 'EX', 60);
+
+        return res.status(200).json({
             status: 200,
-            message: 'Books fetched successfully.',
+            source: 'database',
             data: books,
         });
     } catch (error) {
         res.status(500).json({
             status: 500,
-            error: 'An error occurred while fetching books.',
+            error: error.message,
         });
     }
 };
 
 const createBook = async (req, res) => {
-    const { title, author } = req.body;
-
-    if (!title || !author) {
-        return res.status(400).json({
-            status: 400,
-            error: 'Invalid input: title and author are required.',
-        });
-    }
-
     try {
-        const newBook = new Book({ title, author });
-        await newBook.save(); 
-        res.status(201).json({
+        const book = await Book.create(req.body);
+        await redisClient.del('books');
+
+        return res.status(201).json({
             status: 201,
-            message: 'Book created successfully.',
-            data: newBook,
+            data: book,
         });
     } catch (error) {
         res.status(500).json({
             status: 500,
-            error: 'An error occurred while creating the book.',
+            error: error.message,
         });
     }
 };
 
 const updateBook = async (req, res) => {
-    const { title, author } = req.body;
-    const { id } = req.params;
-
-    if (!title && !author) {
-        return res.status(400).json({
-            status: 400,
-            error: 'Invalid input: Provide title or author to update.',
-        });
-    }
-
     try {
-        const updatedBook = await Book.findByIdAndUpdate(
-            id,
-            { title, author },
-            { new: true, runValidators: true } 
-        );
-        if (!updatedBook) {
+        const { id } = req.params;
+        const book = await Book.findByIdAndUpdate(id, req.body, { new: true });
+        await redisClient.del('books');
+
+        if (!book) {
             return res.status(404).json({
                 status: 404,
-                error: 'Book not found.',
+                error: 'Book not found',
             });
         }
-        res.status(200).json({
+
+        return res.status(200).json({
             status: 200,
-            message: `Book with ID ${id} updated successfully.`,
-            data: updatedBook,
+            data: book,
         });
     } catch (error) {
         res.status(500).json({
             status: 500,
-            error: 'An error occurred while updating the book.',
+            error: error.message,
         });
     }
 };
 
 const deleteBook = async (req, res) => {
-    const { id } = req.params;
-
     try {
-        const deletedBook = await Book.findByIdAndDelete(id);
-        if (!deletedBook) {
+        const { id } = req.params;
+        const book = await Book.findByIdAndDelete(id);
+
+
+        await redisClient.del('books');
+
+        if (!book) {
             return res.status(404).json({
                 status: 404,
-                error: 'Book not found.',
+                error: 'Book not found',
             });
         }
-        res.status(200).json({
+
+        return res.status(200).json({
             status: 200,
-            message: `Book with ID ${id} deleted successfully.`,
+            message: 'Book deleted successfully',
         });
     } catch (error) {
         res.status(500).json({
             status: 500,
-            error: 'An error occurred while deleting the book.',
+            error: error.message,
         });
     }
 };
